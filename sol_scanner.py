@@ -76,14 +76,24 @@ def read_coins(path: str) -> list[Coin]:
             raise ValueError(f"Missing required CSV columns: {', '.join(missing)}")
 
         coins: list[Coin] = []
-        for row in rows:
+        for row_number, row in enumerate(rows, start=2):
+            try:
+                liquidity_usd = float(row["liquidity_usd"])
+                volume_24h_usd = float(row["volume_24h_usd"])
+                age_days = float(row["age_days"])
+                top10_holder_pct = float(row["top10_holder_pct"])
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Invalid numeric value on CSV row {row_number}: {error}"
+                ) from error
+
             coins.append(
                 Coin(
                     symbol=row["symbol"].strip(),
-                    liquidity_usd=float(row["liquidity_usd"]),
-                    volume_24h_usd=float(row["volume_24h_usd"]),
-                    age_days=float(row["age_days"]),
-                    top10_holder_pct=float(row["top10_holder_pct"]),
+                    liquidity_usd=liquidity_usd,
+                    volume_24h_usd=volume_24h_usd,
+                    age_days=age_days,
+                    top10_holder_pct=top10_holder_pct,
                     buy_venue=row["buy_venue"].strip(),
                 )
             )
@@ -99,7 +109,8 @@ def main() -> int:
     print("Use this output as a filtering aid only, then do your own research.\n")
 
     coins = read_coins(args.input)
-    ranked = sorted(((score_coin(c), c) for c in coins), key=lambda item: item[0][0], reverse=True)
+    scored = [(score_coin(coin), coin) for coin in coins]
+    ranked = sorted(scored, key=lambda item: item[0][0], reverse=True)
 
     print("symbol,score,risk,max_position_pct_of_portfolio,buy_venue")
     for (score, risk, max_position_pct), coin in ranked:
